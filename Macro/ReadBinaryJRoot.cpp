@@ -2,6 +2,7 @@
 #include <vector>
 #include <sstream>
 #include <map>
+#include <math.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <iostream>
@@ -795,13 +796,9 @@ void decode(const char *filename){
                     //printf("        ToT ch[%d] = %d\n", i, ToT_LSB[i]);
                 }
             }// end loop on hits
-            int j = 0;
-            for(int i = 0; i<64;i++){
-                if ((ChMask[EventBoard] >> i) & 1) {
-                    ToA_LSB_TREE[j] = ToA_LSB[i];
-                    ToT_LSB_TREE[j] = ToT_LSB[i];
-                    j++;
-                }
+            for(int i = 0; i<nhits;i++){
+                ToA_LSB_TREE[i] = ToA_LSB[i];
+                ToT_LSB_TREE[i] = ToT_LSB[i];
             }
             data->Fill();
         }//end of DTQ_TIMING
@@ -916,18 +913,48 @@ void read(const char *filename){
     TH2F *histHGToT = new TH2F("histHGToT", "histHGToT", 8192, 0, 8192, 512, 0, 512);
     TH2F *histToTToA = new TH2F("histToTToA", "histToTToA", 512, 0, 512, 2048, 0, 2048);
 
+    int overthreshold = 0;
     n = data->GetEntries();
     cout<<n<<endl;
     for(int i = 0; i<n; i++) {
-        data->GetEntry(i);
-        histHG->Fill(EnergyHG_TREE[0]);
-        histToT->Fill(ToT_LSB_TREE[0]);
-        histToA->Fill(ToA_LSB_TREE[0]);
-        if(ToA_LSB_TREE[0] != 0){
-            histHGToT->Fill(EnergyHG_TREE[0],ToT_LSB_TREE[0]);
-            histToTToA->Fill(ToT_LSB_TREE[0],ToA_LSB_TREE[0]);
+        EventBoard = 0;
+        timestamp = 0;   
+        rel_tstamp = 0;
+        fine_tstamp = 0;
+        trigger_id = 0; 
+        for(int i=0; i<MAX_NCH;i++){
+            EnergyHG[i] = 0;
+            EnergyLG[i] = 0;
+            cntW[i] = 0;
+            EnergyHG_TREE[i] = 0;
+            EnergyLG_TREE[i] = 0;
         }
+        for(int i=0; i<MAX_LIST_SIZE; i++){
+            data_t[i] = 0;
+            ToA_LSB[i] = 0;
+            ToT_LSB[i] = 0;
+            ToA_LSB_TREE[i] = 0;
+            ToT_LSB_TREE[i] = 0;
+            timing_channel[i] = 0;
+        }
+        data->GetEntry(i);
+        //printf("%d, %d\n", nhits, ToA_LSB_TREE[0]);
+        if(nhits>0){
+            overthreshold++;
+            histHG->Fill(EnergyHG_TREE[0]);
+            histToT->Fill(ToT_LSB_TREE[0]);
+            histToA->Fill(ToA_LSB_TREE[0]);
+            if(ToA_LSB_TREE[0] != 0){
+                histHGToT->Fill(EnergyHG_TREE[0],ToT_LSB_TREE[0]);
+                histToTToA->Fill(ToT_LSB_TREE[0],ToA_LSB_TREE[0]);
+            }
+        }   
     }
+
+    double efficiency = (double)(overthreshold*1./n);
+    double sigma = sqrt(efficiency*(1- efficiency)/n);
+    cout << "efficiency = " << efficiency << " +/- " << sigma << endl;
+
     TCanvas *cHG = new TCanvas("HG");
     TCanvas *cToT = new TCanvas("ToT");
     TCanvas *cToA = new TCanvas("ToA");
